@@ -29,7 +29,8 @@ nav a.on { color: var(--ink); background: var(--bg); }
 .dot.on { background: var(--ok); }
 main { max-width: 1100px; margin: 0 auto; padding: 16px; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
-.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 16px; }
+.grid > .panel { margin-bottom: 0; }
 .label { color: var(--muted); font-size: 13px; }
 .big { font-size: 56px; font-weight: 600; line-height: 1.05; font-variant-numeric: tabular-nums; }
 .mid { font-size: 32px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -47,7 +48,7 @@ textarea { width: 100%; min-height: 70px; }
 .meat { border-left: 4px solid var(--line); padding-left: 12px; }
 .bar { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; margin-top: 6px; }
 .bar > div { height: 100%; background: var(--pit); width: 0; transition: width .5s; }
-.chart svg { width: 100%; height: 320px; display: block; }
+.chart svg { width: 100%; height: auto; display: block; }
 .chart .axis { stroke: var(--line); }
 .chart text { fill: var(--muted); font-size: 11px; }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 6px; }
@@ -236,7 +237,7 @@ const series = [
 ];
 
 function drawChart(el, legendEl, samples, events, labels) {
-  const W = 1000, H = 320, L = 44, R = 36, T = 10, B = 26;
+  const W = Math.max(300, Math.round(el.clientWidth || 1000)), H = W < 600 ? 260 : 320, L = 40, R = 34, T = 10, B = 26;
   if (!samples.length) { el.innerHTML = '<p class="small">No readings yet.</p>'; legendEl.innerHTML = ""; return; }
   const t0 = new Date(samples[0].t).getTime(), t1 = Math.max(new Date(samples[samples.length - 1].t).getTime(), t0 + 60000);
   let lo = Infinity, hi = -Infinity;
@@ -246,7 +247,7 @@ function drawChart(el, legendEl, samples, events, labels) {
   const x = (t) => L + (t - t0) / (t1 - t0) * (W - L - R);
   const y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
   const yb = (b) => T + (1 - b / 100) * (H - T - B);
-  let svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Temperature chart">`;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Temperature chart">`;
   const step = (hi - lo) > 300 ? 100 : (hi - lo) > 120 ? 50 : 25;
   for (let v = lo; v <= hi; v += step) svg += `<line class="axis" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
   const span = t1 - t0, hours = span / 3600000;
@@ -460,6 +461,7 @@ function route() {
   if (page === "live") renderLive();
 }
 window.addEventListener("hashchange", route);
+let resizeT; window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(route, 200); });
 setInterval(() => { if (!$("page-live").classList.contains("hidden")) renderLive(); else showControllerStatus(); }, 30000);
 connectLive();
 route();
