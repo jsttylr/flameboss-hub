@@ -1,0 +1,17 @@
+# Flame Boss Hub on a Docker host. Start it with: docker compose up -d
+services:
+  flameboss-hub:
+    # "latest" is the newest release; use "main" for the newest build before a release exists.
+    image: ghcr.io/jsttylr/flameboss-hub:latest
+    container_name: flameboss-hub
+    restart: unless-stopped
+    ports:
+      - "8075:8075"   # web page
+      - "1883:1883"   # built-in broker for the Home Assistant integration (optional)
+    environment:
+      - TZ=America/New_York   # your time zone, so cook times look right
+    volumes:
+      - flameboss-data:/data  # settings and cook history survive updates
+
+volumes:
+  flameboss-data:

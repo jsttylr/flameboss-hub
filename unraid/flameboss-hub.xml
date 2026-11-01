@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>flameboss-hub</Name>
+  <Repository>ghcr.io/jsttylr/flameboss-hub:latest</Repository>
+  <Registry>https://github.com/jsttylr/flameboss-hub/pkgs/container/flameboss-hub</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/jsttylr/flameboss-hub/issues</Support>
+  <Project>https://github.com/jsttylr/flameboss-hub</Project>
+  <Overview>Local replacement for the Flame Boss / EGG Genius grill app. Talks to the controller on your network with no cloud, shows live pit and meat temperatures, lets you change the target, records every cook with a graph and notes, and can pass the grill on to Home Assistant. Enter the controller's IP address and PIN on the Settings page.</Overview>
+  <Category>HomeAutomation: Tools:</Category>
+  <WebUI>http://[IP]:[PORT:8075]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/jsttylr/flameboss-hub/main/unraid/flameboss-hub.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/jsttylr/flameboss-hub/main/unraid/icon.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+  <Config Name="Data" Target="/data" Default="/mnt/user/appdata/flameboss-hub" Mode="rw" Description="Settings and cook history." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/flameboss-hub</Config>
+  <Config Name="Web page port" Target="8075" Default="8075" Mode="tcp" Description="Port for the grill page." Type="Port" Display="always" Required="true" Mask="false">8075</Config>
+  <Config Name="Home Assistant port" Target="1883" Default="1884" Mode="tcp" Description="Built-in broker the Flame Boss Home Assistant integration can connect to instead of the grill. Uses 1884 on the host so it doesn't clash with another MQTT broker." Type="Port" Display="always" Required="false" Mask="false">1884</Config>
+  <Config Name="Time zone" Target="TZ" Default="America/New_York" Mode="" Description="Your time zone, so cook times look right." Type="Variable" Display="always" Required="false" Mask="false">America/New_York</Config>
+</Container>

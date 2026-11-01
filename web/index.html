@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flame Boss Hub</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a66; --line: #e3e1dc;
+  --pit: #c2410c; --set: #1d1d1b; --m1: #2563eb; --m2: #059669; --m3: #9333ea; --blower: #d6d3cc;
+  --warn-bg: #fff4e5; --warn: #9a3412; --ok: #15803d; --bad: #b91c1c;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615; --panel: #201f1d; --ink: #ecebe8; --muted: #9c9a94; --line: #34332f;
+    --pit: #fb923c; --set: #ecebe8; --m1: #60a5fa; --m2: #34d399; --m3: #c084fc; --blower: #3a3934;
+    --warn-bg: #3b2210; --warn: #fdba74; --ok: #4ade80; --bad: #f87171;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header { display: flex; align-items: center; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 2; }
+header h1 { font-size: 17px; margin: 0; font-weight: 600; }
+nav { display: flex; gap: 4px; margin-left: auto; }
+nav a { color: var(--muted); text-decoration: none; padding: 6px 10px; border-radius: 6px; }
+nav a.on { color: var(--ink); background: var(--bg); }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bad); display: inline-block; }
+.dot.on { background: var(--ok); }
+main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.label { color: var(--muted); font-size: 13px; }
+.big { font-size: 56px; font-weight: 600; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.mid { font-size: 32px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.small { font-size: 13px; color: var(--muted); }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+button, .btn { font: inherit; padding: 7px 12px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; text-decoration: none; }
+button:hover, .btn:hover { border-color: var(--muted); }
+button.primary { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+button.danger { color: var(--bad); }
+input, textarea, select { font: inherit; padding: 7px 9px; border-radius: 7px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+input[type=number] { width: 90px; }
+textarea { width: 100%; min-height: 70px; }
+.alarm { display: none; background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; align-items: center; gap: 12px; }
+.alarm.show { display: flex; }
+.meat { border-left: 4px solid var(--line); padding-left: 12px; }
+.bar { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; margin-top: 6px; }
+.bar > div { height: 100%; background: var(--pit); width: 0; transition: width .5s; }
+.chart svg { width: 100%; height: 320px; display: block; }
+.chart .axis { stroke: var(--line); }
+.chart text { fill: var(--muted); font-size: 11px; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 6px; }
+.legend i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 5px; }
+table { width: 100%; border-collapse: collapse; }
+td, th { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 500; font-size: 13px; }
+tr.link { cursor: pointer; }
+tr.link:hover td { background: var(--bg); }
+.events { list-style: none; padding: 0; margin: 0; }
+.events li { padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.events time { color: var(--muted); margin-right: 8px; font-variant-numeric: tabular-nums; }
+.form { display: grid; grid-template-columns: 220px 1fr; gap: 10px 16px; align-items: center; }
+.form h3 { grid-column: 1 / -1; margin: 14px 0 0; font-size: 15px; }
+.form .hint { grid-column: 2; margin-top: -6px; }
+.err { color: var(--bad); }
+.hidden { display: none !important; }
+@media (max-width: 640px) {
+  .big { font-size: 44px; }
+  .form { grid-template-columns: 1fr; }
+  .form .hint { grid-column: 1; }
+  header { flex-wrap: wrap; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Flame Boss Hub</h1>
+  <span class="row small"><span id="conn-dot" class="dot"></span><span id="conn-text">Connecting</span></span>
+  <nav>
+    <a href="#/" data-page="live">Live</a>
+    <a href="#/cooks" data-page="cooks">Cooks</a>
+    <a href="#/settings" data-page="settings">Settings</a>
+  </nav>
+</header>
+
+<main>
+  <!-- Live -->
+  <section id="page-live">
+    <div id="alarm" class="alarm"><strong id="alarm-text">Alarm</strong><button id="silence">Silence</button></div>
+    <div id="setup-hint" class="panel hidden">No grill controller set up yet. Open <a href="#/settings">Settings</a> and enter its IP address and PIN.</div>
+
+    <div class="grid">
+      <div class="panel">
+        <div class="label">Pit</div>
+        <div class="big" id="pit">--</div>
+        <div class="small">Blower <span id="blower">--</span></div>
+        <div class="bar"><div id="blower-bar"></div></div>
+      </div>
+      <div class="panel">
+        <div class="label">Target</div>
+        <div class="big" id="set">--</div>
+        <div class="row" style="margin-top:8px">
+          <button data-step="-5">-5</button>
+          <input id="set-input" type="number" step="1" aria-label="New target temperature">
+          <button data-step="5">+5</button>
+          <button id="set-go" class="primary">Set</button>
+        </div>
+        <div class="small err" id="set-err"></div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="panel meat" style="border-left-color: var(--m1)"><div class="label" id="meat1-label">Meat 1</div><div class="mid" id="meat1">--</div><div class="small" id="meat1-done"></div></div>
+      <div class="panel meat" style="border-left-color: var(--m2)"><div class="label" id="meat2-label">Meat 2</div><div class="mid" id="meat2">--</div><div class="small" id="meat2-done"></div></div>
+      <div class="panel meat" style="border-left-color: var(--m3)"><div class="label" id="meat3-label">Meat 3</div><div class="mid" id="meat3">--</div><div class="small" id="meat3-done"></div></div>
+    </div>
+
+    <div class="panel">
+      <div class="row" style="justify-content: space-between">
+        <div>
+          <div class="label">Cook</div>
+          <div id="cook-name" style="font-weight:600">No cook in progress</div>
+          <div class="small" id="cook-time">A cook starts by itself when the pit reaches 122°F / 50°C.</div>
+        </div>
+        <div class="row">
+          <button id="cook-start">Start cook</button>
+          <button id="cook-stop" class="hidden">Stop cook</button>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px" id="note-row">
+        <input id="note" placeholder="Add a note (wrapped, spritzed, added wood...)" style="flex:1; min-width: 200px">
+        <button id="note-go">Add note</button>
+      </div>
+    </div>
+
+    <div class="panel chart">
+      <div class="label">This cook</div>
+      <div id="live-chart"></div>
+      <div class="legend" id="live-legend"></div>
+    </div>
+  </section>
+
+  <!-- Cook history -->
+  <section id="page-cooks" class="hidden">
+    <div class="panel">
+      <table>
+        <thead><tr><th>Cook</th><th>Started</th><th>Length</th><th>Hottest pit</th></tr></thead>
+        <tbody id="cook-rows"></tbody>
+      </table>
+      <p class="small" id="cooks-empty">No cooks yet. They are saved here automatically.</p>
+    </div>
+  </section>
+
+  <!-- One cook -->
+  <section id="page-cook" class="hidden">
+    <div class="panel">
+      <div class="row" style="justify-content: space-between">
+        <input id="cd-name" style="font-size:18px; font-weight:600; flex:1; min-width: 200px">
+        <div class="row">
+          <a class="btn" id="cd-csv">Download CSV</a>
+          <button class="danger" id="cd-delete">Delete</button>
+        </div>
+      </div>
+      <div class="small" id="cd-meta" style="margin-top:6px"></div>
+    </div>
+    <div class="panel chart"><div id="cd-chart"></div><div class="legend" id="cd-legend"></div></div>
+    <div class="grid">
+      <div class="panel"><div class="label">Notes</div><textarea id="cd-notes" placeholder="Rub, wood, how it turned out..."></textarea><div class="row" style="margin-top:8px"><button id="cd-save" class="primary">Save</button><span class="small" id="cd-saved"></span></div></div>
+      <div class="panel"><div class="label">What happened</div><ul class="events" id="cd-events"></ul></div>
+    </div>
+  </section>
+
+  <!-- Settings -->
+  <section id="page-settings" class="hidden">
+    <div class="panel">
+      <form id="settings" class="form" autocomplete="off">
+        <h3>Grill controller</h3>
+        <label for="s-host">IP address</label><input id="s-host" name="host" placeholder="192.168.1.50">
+        <label for="s-pin">PIN</label><input id="s-pin" name="pin" type="password" placeholder="">
+        <div class="small hint">In the Flame Boss / EGG Genius app: Controllers, Security, Show PIN. Leave blank to keep the saved PIN.</div>
+        <label for="s-units">Units</label><select id="s-units" name="units"><option value="F">Fahrenheit</option><option value="C">Celsius</option></select>
+        <div class="small hint" id="s-status"></div>
+
+        <h3>Home Assistant</h3>
+        <label for="s-mirror">Let Home Assistant connect here</label><input id="s-mirror" name="mirror_enabled" type="checkbox">
+        <div class="small hint">Point the Flame Boss Home Assistant integration at this computer's IP address instead of the grill. Same PIN unless you set one below. The grill then only has one local connection to manage.</div>
+        <label for="s-mport">Port</label><input id="s-mport" name="mirror_port" type="number">
+        <label for="s-mpin">PIN for Home Assistant</label><input id="s-mpin" name="mirror_pin" type="password" placeholder="same as the grill">
+
+        <label for="s-ha">Publish to an MQTT broker</label><input id="s-ha" name="ha_enabled" type="checkbox">
+        <div class="small hint">Alternative to the integration: entities appear in Home Assistant's MQTT integration automatically.</div>
+        <label for="s-habroker">Broker</label><input id="s-habroker" name="ha_broker" placeholder="192.168.1.10:1883">
+        <label for="s-hauser">Username</label><input id="s-hauser" name="ha_user">
+        <label for="s-hapass">Password</label><input id="s-hapass" name="ha_password" type="password" placeholder="">
+
+        <h3>Phone alerts</h3>
+        <label for="s-ntfy">ntfy topic URL</label><input id="s-ntfy" name="ntfy_url" placeholder="https://ntfy.sh/your-secret-topic">
+        <div class="small hint">Optional. Install the ntfy app and subscribe to the same topic to get meat-done and pit alarms.</div>
+
+        <div></div><div class="row"><button class="primary" type="submit">Save</button><span class="small" id="s-saved"></span></div>
+      </form>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+let status = null;          // latest /api/status payload
+let liveSamples = [];       // samples for the cook in progress
+let liveCookId = 0;
+
+// ---------- units ----------
+const units = () => (status && status.units) || "F";
+const toU = (c) => c == null ? null : (units() === "F" ? c * 9 / 5 + 32 : c);
+const fromU = (v) => units() === "F" ? (v - 32) * 5 / 9 : v;
+const fmt = (c, digits = 0) => c == null ? "--" : toU(c).toFixed(digits) + "°";
+const deg = () => "°" + units();
+
+// ---------- api ----------
+async function api(method, path, body) {
+  const r = await fetch(path, { method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
+  if (!r.ok) throw new Error((await r.text()).trim() || r.statusText);
+  const t = r.headers.get("Content-Type") || "";
+  return t.includes("json") ? r.json() : r.text();
+}
+
+// ---------- chart ----------
+const series = [
+  { key: (s) => s.temps[0], name: "Pit", color: "var(--pit)", width: 2.5 },
+  { key: (s) => s.set_temp, name: "Target", color: "var(--set)", width: 1.5, dash: "5 4" },
+  { key: (s) => s.temps[1], name: "Meat 1", color: "var(--m1)", width: 2 },
+  { key: (s) => s.temps[2], name: "Meat 2", color: "var(--m2)", width: 2 },
+  { key: (s) => s.temps[3], name: "Meat 3", color: "var(--m3)", width: 2 },
+];
+
+function drawChart(el, legendEl, samples, events, labels) {
+  const W = 1000, H = 320, L = 44, R = 36, T = 10, B = 26;
+  if (!samples.length) { el.innerHTML = '<p class="small">No readings yet.</p>'; legendEl.innerHTML = ""; return; }
+  const t0 = new Date(samples[0].t).getTime(), t1 = Math.max(new Date(samples[samples.length - 1].t).getTime(), t0 + 60000);
+  let lo = Infinity, hi = -Infinity;
+  for (const s of samples) for (const sr of series) { const v = toU(sr.key(s)); if (v != null) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }
+  if (lo === Infinity) { lo = 0; hi = 100; }
+  const pad = Math.max(10, (hi - lo) * 0.08); lo = Math.floor((lo - pad) / 25) * 25; hi = Math.ceil((hi + pad) / 25) * 25;
+  const x = (t) => L + (t - t0) / (t1 - t0) * (W - L - R);
+  const y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+  const yb = (b) => T + (1 - b / 100) * (H - T - B);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Temperature chart">`;
+  const step = (hi - lo) > 300 ? 100 : (hi - lo) > 120 ? 50 : 25;
+  for (let v = lo; v <= hi; v += step) svg += `<line class="axis" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+  const span = t1 - t0, hours = span / 3600000;
+  const mins = span / 60000;
+  const tick = hours > 12 ? 7200000 : hours > 4 ? 3600000 : hours > 1 ? 1800000 : mins > 20 ? 600000 : mins > 5 ? 120000 : 60000;
+  for (let t = Math.ceil(t0 / tick) * tick; t <= t1; t += tick) {
+    const d = new Date(t);
+    svg += `<text x="${x(t)}" y="${H - 6}" text-anchor="middle">${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}</text>`;
+  }
+  // blower as a light area on its own 0-100% scale
+  let area = "", started = false;
+  for (const s of samples) {
+    if (s.blower == null) continue;
+    const px = x(new Date(s.t).getTime()), py = yb(s.blower);
+    area += (started ? "L" : `M${px},${yb(0)}L`) + `${px},${py}`; started = true;
+  }
+  if (started) { const last = samples[samples.length - 1]; area += `L${x(new Date(last.t).getTime())},${yb(0)}Z`; svg += `<path d="${area}" fill="var(--blower)" opacity=".55"/>`; }
+  for (const sr of series) {
+    let d = "", pen = false;
+    for (const s of samples) {
+      const v = toU(sr.key(s));
+      if (v == null) { pen = false; continue; }
+      d += (pen ? "L" : "M") + x(new Date(s.t).getTime()).toFixed(1) + "," + y(v).toFixed(1); pen = true;
+    }
+    if (d) svg += `<path d="${d}" fill="none" stroke="${sr.color}" stroke-width="${sr.width}" ${sr.dash ? `stroke-dasharray="${sr.dash}"` : ""} vector-effect="non-scaling-stroke" stroke-linejoin="round"/>`;
+  }
+  for (const e of (events || [])) {
+    if (e.kind === "set_temp") continue;
+    const px = x(new Date(e.t).getTime());
+    svg += `<line x1="${px}" x2="${px}" y1="${T}" y2="${H - B}" stroke="var(--muted)" stroke-dasharray="2 3" vector-effect="non-scaling-stroke"><title>${esc(e.text)}</title></line>`;
+  }
+  svg += `<text x="${W - R + 6}" y="${yb(100) + 4}">100%</text><text x="${W - R + 6}" y="${yb(0)}">0%</text></svg>`;
+  el.innerHTML = svg;
+  const present = series.filter((sr) => samples.some((s) => sr.key(s) != null));
+  legendEl.innerHTML = present.map((sr, i) => {
+    const idx = series.indexOf(sr); const name = idx >= 2 && labels && labels[idx - 1] ? labels[idx - 1] : sr.name;
+    return `<span><i style="background:${sr.color}"></i>${esc(name)}</span>`;
+  }).join("") + `<span><i style="background:var(--blower); height:8px"></i>Blower</span><span>${deg()}</span>`;
+}
+
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+// ---------- live page ----------
+function duration(ms) {
+  const m = Math.max(0, Math.round(ms / 60000)); const h = Math.floor(m / 60);
+  return h ? `${h} h ${m % 60} min` : `${m} min`;
+}
+
+function renderLive() {
+  if (!status) return;
+  const s = status.state, c = status.controller;
+  $("conn-dot").classList.toggle("on", !!c.connected);
+  $("conn-text").textContent = c.connected ? "Grill connected" : (c.host ? (c.auth_failed ? "Wrong PIN" : "Grill not reachable") : "Not set up");
+  $("setup-hint").classList.toggle("hidden", !!c.host);
+  $("pit").textContent = fmt(s.temps[0]);
+  $("set").textContent = fmt(s.set_temp);
+  $("blower").textContent = s.blower == null ? "--" : Math.round(s.blower) + "%";
+  $("blower-bar").style.width = (s.blower || 0) + "%";
+  for (let i = 1; i <= 3; i++) {
+    $(`meat${i}`).textContent = fmt(s.temps[i]);
+    $(`meat${i}-label`).textContent = s.labels[i] || `Meat ${i}`;
+    const a = s.meat_alarms && s.meat_alarms[i];
+    $(`meat${i}-done`).textContent = a && a.action && a.action !== "off" && a.done_temp != null ? `Done at ${fmt(a.done_temp)}` : "";
+  }
+  const alarm = s.sound_alarm || (s.pit_alarm && s.pit_alarm.status === "alerting");
+  $("alarm").classList.toggle("show", !!alarm);
+  $("alarm-text").textContent = s.last_alert || "The grill is beeping";
+  const input = $("set-input");
+  if (document.activeElement !== input && s.set_temp != null) input.value = Math.round(toU(s.set_temp));
+  input.min = Math.round(toU(s.min_temp)); input.max = Math.round(toU(s.max_temp));
+
+  const cook = status.cook;
+  $("cook-start").classList.toggle("hidden", !!cook);
+  $("cook-stop").classList.toggle("hidden", !cook);
+  $("note-row").classList.toggle("hidden", !cook);
+  if (cook) {
+    $("cook-name").textContent = cook.name;
+    $("cook-time").textContent = `Started ${new Date(cook.started).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}, ${duration(Date.now() - new Date(cook.started))} so far`;
+    if (liveCookId !== cook.id) { liveCookId = cook.id; loadLiveChart(); }
+    else if (c.connected) {
+      const last = liveSamples[liveSamples.length - 1];
+      if (!last || Date.now() - new Date(last.t) > 15000) liveSamples.push({ t: new Date().toISOString(), temps: s.temps, set_temp: s.set_temp, blower: s.blower });
+      drawChart($("live-chart"), $("live-legend"), liveSamples, [], s.labels);
+    }
+  } else {
+    $("cook-name").textContent = "No cook in progress";
+    $("cook-time").textContent = `A cook starts by itself when the pit reaches ${units() === "F" ? "122°F" : "50°C"}.`;
+    liveCookId = 0; liveSamples = [];
+    drawChart($("live-chart"), $("live-legend"), [], [], s.labels);
+  }
+}
+
+async function loadLiveChart() {
+  try {
+    const d = await api("GET", `/api/cooks/${liveCookId}`);
+    liveSamples = d.samples;
+    drawChart($("live-chart"), $("live-legend"), liveSamples, d.events, status.state.labels);
+  } catch (e) { console.warn(e); }
+}
+
+function connectLive() {
+  const es = new EventSource("/api/live");
+  es.onmessage = (ev) => { status = JSON.parse(ev.data); renderLive(); };
+  es.onerror = () => { $("conn-dot").classList.remove("on"); $("conn-text").textContent = "Hub not reachable"; };
+}
+
+document.querySelectorAll("[data-step]").forEach((b) => b.onclick = () => {
+  const i = $("set-input"); i.value = (Number(i.value) || 0) + Number(b.dataset.step);
+});
+$("set-go").onclick = async () => {
+  $("set-err").textContent = "";
+  const v = Number($("set-input").value);
+  if (!v) return;
+  try { await api("POST", "/api/set_temp", { celsius: Math.round(fromU(v) * 10) / 10 }); }
+  catch (e) { $("set-err").textContent = e.message; }
+};
+$("set-input").addEventListener("keydown", (e) => { if (e.key === "Enter") $("set-go").click(); });
+$("silence").onclick = () => api("POST", "/api/silence").catch((e) => alert(e.message));
+$("cook-start").onclick = async () => {
+  const name = prompt("Name this cook (optional)", "") ;
+  if (name === null) return;
+  await api("POST", "/api/cook/start", { name }).catch((e) => alert(e.message));
+};
+$("cook-stop").onclick = async () => { if (confirm("Stop recording this cook?")) await api("POST", "/api/cook/stop").catch((e) => alert(e.message)); };
+$("note-go").onclick = async () => {
+  const text = $("note").value.trim(); if (!text) return;
+  try { await api("POST", "/api/cook/note", { text }); $("note").value = ""; } catch (e) { alert(e.message); }
+};
+$("note").addEventListener("keydown", (e) => { if (e.key === "Enter") $("note-go").click(); });
+
+// ---------- history ----------
+async function renderCooks() {
+  const cooks = await api("GET", "/api/cooks");
+  $("cooks-empty").classList.toggle("hidden", cooks.length > 0);
+  $("cook-rows").innerHTML = cooks.map((c) => {
+    const len = c.ended ? duration(new Date(c.ended) - new Date(c.started)) : "In progress";
+    return `<tr class="link" data-id="${c.id}"><td>${esc(c.name)}</td><td>${new Date(c.started).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</td><td>${len}</td><td>${fmt(c.max_pit)}</td></tr>`;
+  }).join("");
+  document.querySelectorAll("#cook-rows tr").forEach((tr) => tr.onclick = () => location.hash = `#/cooks/${tr.dataset.id}`);
+}
+
+let currentCook = null;
+async function renderCook(id) {
+  const d = await api("GET", `/api/cooks/${id}`);
+  currentCook = d.cook;
+  $("cd-name").value = d.cook.name;
+  $("cd-notes").value = d.cook.notes;
+  $("cd-saved").textContent = "";
+  const end = d.cook.ended ? new Date(d.cook.ended) : null;
+  $("cd-meta").textContent = `${new Date(d.cook.started).toLocaleString([], { dateStyle: "full", timeStyle: "short" })}` +
+    (end ? `, ${duration(end - new Date(d.cook.started))}` : ", in progress") + (d.cook.max_pit != null ? `. Hottest pit ${fmt(d.cook.max_pit)}` : "");
+  $("cd-csv").href = `/api/cooks/${id}/csv`;
+  drawChart($("cd-chart"), $("cd-legend"), d.samples, d.events, d.cook.labels);
+  $("cd-events").innerHTML = d.events.length ? d.events.map((e) => {
+    const t = new Date(e.t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    const text = e.kind === "set_temp" ? `Target set to ${fmt(Number(e.text))}` : e.text;
+    return `<li><time>${t}</time>${esc(text)}</li>`;
+  }).join("") : '<li class="small">Nothing yet. Setpoint changes, alarms and your notes show up here.</li>';
+}
+$("cd-save").onclick = async () => {
+  await api("PATCH", `/api/cooks/${currentCook.id}`, { name: $("cd-name").value, notes: $("cd-notes").value });
+  $("cd-saved").textContent = "Saved";
+};
+$("cd-delete").onclick = async () => {
+  if (!confirm("Delete this cook and all its readings?")) return;
+  await api("DELETE", `/api/cooks/${currentCook.id}`); location.hash = "#/cooks";
+};
+
+// ---------- settings ----------
+async function renderSettings() {
+  const c = await api("GET", "/api/config");
+  const f = $("settings");
+  f.host.value = c.host; f.pin.value = ""; f.pin.placeholder = c.pin_set ? "saved" : "";
+  f.units.value = c.units; f.mirror_enabled.checked = c.mirror_enabled; f.mirror_port.value = c.mirror_port;
+  f.mirror_pin.value = ""; f.mirror_pin.placeholder = c.mirror_pin_set ? "saved" : "same as the grill";
+  f.ha_enabled.checked = c.ha_enabled; f.ha_broker.value = c.ha_broker; f.ha_user.value = c.ha_user;
+  f.ha_password.value = ""; f.ha_password.placeholder = c.ha_password_set ? "saved" : "";
+  f.ntfy_url.value = c.ntfy_url;
+  $("s-saved").textContent = "";
+  showControllerStatus();
+}
+function showControllerStatus() {
+  if (!status) return;
+  const c = status.controller;
+  $("s-status").textContent = !c.host ? "" : c.connected ? `Connected to the grill (ID ${status.state.device_id || "?"}, firmware ${status.state.firmware || "?"}).` :
+    c.auth_failed ? "The grill rejected the PIN." : `Not connected yet${c.error ? ": " + c.error : ""}.`;
+}
+$("settings").onsubmit = async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const body = {
+    host: f.host.value.trim(), pin: f.pin.value.trim(), units: f.units.value,
+    mirror_enabled: f.mirror_enabled.checked, mirror_port: Number(f.mirror_port.value) || 1883, mirror_pin: f.mirror_pin.value.trim(),
+    ha_enabled: f.ha_enabled.checked, ha_broker: f.ha_broker.value.trim(), ha_user: f.ha_user.value.trim(), ha_password: f.ha_password.value,
+    ntfy_url: f.ntfy_url.value.trim(),
+  };
+  try { await api("POST", "/api/config", body); $("s-saved").textContent = "Saved"; setTimeout(renderSettings, 2500); }
+  catch (err) { $("s-saved").textContent = err.message; }
+};
+
+// ---------- routing ----------
+function route() {
+  const h = location.hash || "#/";
+  const m = h.match(/^#\/cooks\/(\d+)/);
+  const page = m ? "cook" : h.startsWith("#/cooks") ? "cooks" : h.startsWith("#/settings") ? "settings" : "live";
+  for (const p of ["live", "cooks", "cook", "settings"]) $(`page-${p}`).classList.toggle("hidden", p !== page);
+  document.querySelectorAll("nav a").forEach((a) => a.classList.toggle("on", a.dataset.page === (page === "cook" ? "cooks" : page)));
+  if (page === "cooks") renderCooks();
+  if (page === "cook") renderCook(m[1]);
+  if (page === "settings") renderSettings();
+  if (page === "live") renderLive();
+}
+window.addEventListener("hashchange", route);
+setInterval(() => { if (!$("page-live").classList.contains("hidden")) renderLive(); else showControllerStatus(); }, 30000);
+connectLive();
+route();
+</script>
+</body>
+</html>
